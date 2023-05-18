@@ -22,6 +22,8 @@ The code executes a query that selects the `Name` property from the `Win32_Proce
 The result is accessed and stored as a `std::optional<std::string>` in the `value` variable.
 
 ```cpp
+#include <wmipp/wmipp.hxx>
+
 const auto value = wmipp::Interface()
   .ExecuteQuery(L"SELECT Name FROM Win32_Processor")
   .GetProperty<std::string>(L"Name");
