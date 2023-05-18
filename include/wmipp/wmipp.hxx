@@ -1,10 +1,10 @@
 #pragma once
 
 #include <optional>
-#include <concepts>
 #include <stdexcept>
 #include <vector>
 #include <string>
+#include <concepts>
 
 #include <atlsafe.h>
 #include <comdef.h>
@@ -14,14 +14,14 @@
 
 namespace wmipp
 {
-	struct Exception final : std::runtime_error {
+	struct Exception final : std::runtime_error{
 		explicit Exception(const std::string& message) : std::runtime_error(message) {}
 	};
 
 	template <class T>
 	[[nodiscard]] std::optional<T> ConvertVariant(const CComVariant& variant) {
 		std::optional<T> result = std::nullopt;
-		try { result = static_cast<T>(_variant_t(variant)); }
+		try { result = static_cast<T>(variant_t(variant)); }
 		catch (...) { }
 		return result;
 	}
@@ -29,10 +29,10 @@ namespace wmipp
 	template <class T>
 		requires std::is_same_v<T, std::string> || std::is_same_v<T, std::wstring>
 	[[nodiscard]] std::optional<T> ConvertVariant(const CComVariant& variant) {
-		// By converting the variant into a _bstr_t first, we can automatically
+		// By converting the variant into a bstr_t first, we can automatically
 		// handle character type conversions and support std::string and std::wstring.
 		std::optional<T> result = std::nullopt;
-		if (const auto temp = ConvertVariant<_bstr_t>(variant)) {
+		if (const auto temp = ConvertVariant<bstr_t>(variant)) {
 			result = static_cast<T>(*temp);
 		}
 
@@ -61,35 +61,35 @@ namespace wmipp
 
 	template <class T>
 		requires std::is_same_v<T, std::vector<typename T::value_type>>
-			&& (std::is_same_v<typename T::value_type, std::string> 
-				|| std::is_same_v<typename T::value_type, std::wstring>)
+		&& (std::is_same_v<typename T::value_type, std::string>
+			|| std::is_same_v<typename T::value_type, std::wstring>)
 	[[nodiscard]] std::optional<T> ConvertVariant(const CComVariant& variant) {
 		// Read all data as a vector of BSTRs first.
 		// We will convert each BSTR into the desired string type later.
 		const auto intm = ConvertVariant<std::vector<BSTR>>(variant);
-	    if (!intm) return std::nullopt;
+		if (!intm) return std::nullopt;
 
-	    T result{};
-	    result.reserve(intm->size());
-	    for (const auto& element : *intm) {
-			// Convert it into a _bstr_t first to automatically handle character type conversions.
-			const auto temp = static_cast<typename T::value_type>(_bstr_t(element));
-	    	result.emplace_back(temp);
-	        SysFreeString(element);
-	    }
+		T result{};
+		result.reserve(intm->size());
+		for (const auto& element : *intm) {
+			// Convert it into a bstr_t first to automatically handle character type conversions.
+			const auto temp = static_cast<typename T::value_type>(bstr_t(element));
+			result.emplace_back(temp);
+			SysFreeString(element);
+		}
 
-	    return result;
+		return result;
 	}
-	
+
 	/**
 	 * \brief This class encapsulates a WMI object obtained from a query result.
 	 * It provides a convenient interface to access its properties.
 	 */
-	class Object {
+	class Object{
 		friend class QueryResult;
 
 	protected:
-		explicit Object(CComPtr<IWbemClassObject> object) : object_(object) {}
+		explicit Object(CComPtr<IWbemClassObject> object) : object_(std::move(object)) {}
 
 	public:
 		/**
@@ -104,9 +104,9 @@ namespace wmipp
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name) const {
 			CComVariant variant;
 			const auto result = object_->Get(
-				name.data(), 
-				0, 
-				&variant, 
+				name.data(),
+				0,
+				&variant,
 				nullptr,
 				nullptr);
 			if (FAILED(result)) {
@@ -125,11 +125,11 @@ namespace wmipp
 	 * It provides methods to access and retrieve properties from the objects in a convenient manner.
 	 * The class supports iterating over the objects using range-based for loops.
 	 */
-	class QueryResult {
+	class QueryResult{
 		friend class Interface;
 
 	protected:
-		explicit QueryResult(CComPtr<IEnumWbemClassObject> enumerator) {
+		explicit QueryResult(const CComPtr<IEnumWbemClassObject>& enumerator) {
 			if (enumerator) PopulateObjects(enumerator);
 		}
 
@@ -168,6 +168,13 @@ namespace wmipp
 			return objects_.at(index).GetProperty<T>(name);
 		}
 
+		/**
+		 * \brief Returns the number of objects in the result.
+		 */
+		[[nodiscard]] std::size_t Count() const {
+			return objects_.size();
+		}
+
 		[[nodiscard]] std::vector<Object>::const_iterator begin() const {
 			return objects_.begin();
 		}
@@ -185,21 +192,21 @@ namespace wmipp
 		 * Each retrieved IWbemClassObject is wrapped in an Object and added to the objects vector.
 		 * \param enumerator A pointer to the IEnumWbemClassObject enumerator.
 		 */
-		void PopulateObjects(CComPtr<IEnumWbemClassObject> enumerator) {
+		void PopulateObjects(const CComPtr<IEnumWbemClassObject>& enumerator) {
 			while (true) {
-		        ULONG returned_count = 0;
-		        CComPtr<IWbemClassObject> object = nullptr;
-		        const auto result = enumerator->Next(
-					WBEM_INFINITE, 
+				ULONG returned_count = 0;
+				CComPtr<IWbemClassObject> object = nullptr;
+				const auto result = enumerator->Next(
+					WBEM_INFINITE,
 					1,
 					&object,
 					&returned_count);
-		        if (FAILED(result) || returned_count == 0) {
-		            break;
-		        }
+				if (FAILED(result) || returned_count == 0) {
+					break;
+				}
 
 				objects_.emplace_back(Object(object));
-		    }
+			}
 		}
 	};
 
@@ -210,58 +217,63 @@ namespace wmipp
 	 * Important: QueryResult and Object instances should never outlive the Interface
 	 * instance, otherwise the COM library will be uninitialized and the program will crash.
 	 */
-	class Interface {
+	class Interface{
 	public:
 		/**
 		 * \brief Initializes the COM library and creates a connection to the WMI service.
 		 * \param path The path to the WMI namespace to connect to.
-		 * \throws wmi::Exception if the COM library fails to initialize or the connection to the WMI service fails.
+		 * \throws wmipp::Exception if the COM library fails to initialize or the connection
+		 * to the WMI service fails.
 		 */
-		Interface(const std::string_view path = "cimv2") {
-			auto result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-			if (FAILED(result)) {
-				throw Exception("failed to initialize com library");
-			}
-		
+		explicit Interface(const std::string_view path = "cimv2") {
+			auto result = CoInitializeEx(nullptr, 0);
+			if (FAILED(result)) throw Exception("Failed to initialize the COM library");
+
 			result = CoCreateInstance(
-				CLSID_WbemLocator, 
-				nullptr, 
-				CLSCTX_INPROC_SERVER, 
-				IID_IWbemLocator, 
+				CLSID_WbemLocator,
+				nullptr,
+				CLSCTX_INPROC_SERVER,
+				IID_IWbemLocator,
 				reinterpret_cast<LPVOID*>(&locator_));
 			if (FAILED(result)) {
 				CoUninitialize();
-				throw Exception("failed to create locator object");
+				throw Exception("Failed to create WbemLocator object");
 			}
 
 			result = locator_->ConnectServer(
-				_bstr_t(R"(\\.\root\)") + _bstr_t(path.data()),
-				nullptr, 
-				nullptr, 
-				nullptr, 
-				0, 
-				nullptr, 
-				nullptr, 
+				bstr_t(R"(\\.\root\)") + bstr_t(path.data()),
+				nullptr,
+				nullptr,
+				nullptr,
+				0,
+				nullptr,
+				nullptr,
 				&services_);
 			if (FAILED(result)) {
 				CoUninitialize();
-				throw Exception("failed to connect to wmi service");
+				throw Exception("Could not connect to WMI service");
 			}
 
 			result = CoSetProxyBlanket(
-				services_, 
-				RPC_C_AUTHN_DEFAULT, 
-				RPC_C_AUTHZ_NONE, 
-				COLE_DEFAULT_PRINCIPAL, 
-				RPC_C_AUTHN_LEVEL_DEFAULT, 
-				RPC_C_IMP_LEVEL_IMPERSONATE, 
-				nullptr, 
+				services_,
+				RPC_C_AUTHN_DEFAULT,
+				RPC_C_AUTHZ_NONE,
+				COLE_DEFAULT_PRINCIPAL,
+				RPC_C_AUTHN_LEVEL_DEFAULT,
+				RPC_C_IMP_LEVEL_IMPERSONATE,
+				nullptr,
 				EOAC_NONE);
 			if (FAILED(result)) {
 				CoUninitialize();
-				throw Exception("failed to set proxy blanket");
+				throw Exception("Could not set proxy blanket");
 			}
 		}
+
+		Interface(const Interface& other) = default;
+		Interface& operator=(const Interface& other) = default;
+
+		Interface(Interface&& other) noexcept = delete;
+		Interface& operator=(Interface&& other) noexcept = delete;
 
 		/**
 		 * \brief Uninitializes the COM library and releases the WMI service connection.
@@ -276,18 +288,18 @@ namespace wmipp
 		 * \brief Executes a WQL query and returns the result.
 		 * \param query The WQL query to execute.
 		 * \return A QueryResult instance containing the result of the query.
-		 * \throws wmi::Exception if the query fails to execute.
+		 * \throws wmipp::Exception if the query fails to execute.
 		 */
-		[[nodiscard]] QueryResult ExecuteQuery(const std::wstring_view query) {
+		[[nodiscard]] QueryResult ExecuteQuery(const std::wstring_view query) const {
 			CComPtr<IEnumWbemClassObject> enumerator;
-			auto result = services_->ExecQuery(
+			const auto result = services_->ExecQuery(
 				bstr_t("WQL"),
 				bstr_t(query.data()),
 				WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
 				nullptr,
 				&enumerator);
 			if (FAILED(result)) {
-				throw Exception("failed to execute wql query");
+				throw Exception("Failed to execute WQL query");
 			}
 
 			return QueryResult(enumerator);
