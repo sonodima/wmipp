@@ -2,10 +2,10 @@
  * WMI++ takes away the pain from interfacing with
  * the Windows Management Instrumentation in C++.
  *
- * Author:				sonodima
- * Repo:					https://github.com/sonodima/wmipp
+ * Author:			sonodima
+ * Repo:			https://github.com/sonodima/wmipp
  * C++ Version:		20>
- * Supported OS:  Windows
+ * Supported OS:	Windows
  *
  * ---------------------------------------------------
  *
@@ -13,7 +13,7 @@
  *
  * Permission is hereby granted, free of charge, to
  * any person obtaining a copy of this software and
- * associated documentation files (the “Software”),
+ * associated documentation files (the "Software"),
  * to deal in the Software without restriction, including
  * without limitation the rights to use, copy, modify,
  * merge, publish, distribute, sublicense, and/or sell
@@ -25,7 +25,7 @@
  * shall be included in all copies or substantial portions
  * of the Software.
  *
- * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
  * ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
  * TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
  * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
