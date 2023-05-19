@@ -18,24 +18,27 @@
 #### Minimal Example
 
 Retrieve a specific property from a WMI query using WMI++.
+
 The code executes a query that selects the `Name` property from the `Win32_Processor` class.
+
 The result is accessed and stored as a `std::optional<std::string>` in the `value` variable.
 
 ```cpp
 #include <wmipp/wmipp.hxx>
 
-const auto value = wmipp::Interface()
-  .ExecuteQuery(L"SELECT Name FROM Win32_Processor")
+const auto value = wmipp::Interface::Create()
+  ->ExecuteQuery(L"SELECT Name FROM Win32_Processor")
   .GetProperty<std::string>(L"Name");
 ```
 
 #### Custom Path
 
-Connect to a specific WMI namespace by providing a custom path to the `wmipp::Interface` constructor.
+Connect to a specific WMI namespace by providing a custom path to the `wmipp::Interface::Create` method.
+
 Replace `"CUSTOM_PATH_HERE"` with the desired custom path, such as the namespace or machine path.
 
 ```cpp
-const auto interface = wmipp::Interface("CUSTOM_PATH_HERE");
+const auto iface = wmipp::Interface::Create("CUSTOM_PATH_HERE");
 ```
 
 [MSDN](https://learn.microsoft.com/en-us/windows/win32/wmisdk/describing-the-location-of-a-wmi-object)
@@ -43,14 +46,34 @@ const auto interface = wmipp::Interface("CUSTOM_PATH_HERE");
 #### Object Iteration
 
 Iterate over multiple WMI objects returned by a query.
-The code executes a query that selects the Model property from the `Win32_DiskDrive` class.
-The for loop iterates over the resulting objects.
+
+The code executes a query that selects the Model property from the `Win32_DiskDrive`.
+
+Because this query may return more than one result _(with disks > 1)_, you can choose to iterate
+all the returned objects in the result with range-based loops.
+
 Within the loop, retrieve the `Model` property value of each object using the `GetProperty` function and store it in the `model` variable.
 
 ```cpp
-for (const auto& obj : wmipp::Interface().ExecuteQuery(L"SELECT Model FROM Win32_DiskDrive")) {
+for (const auto& obj : wmipp::Interface::Create()->ExecuteQuery(L"SELECT Model FROM Win32_DiskDrive")) {
   const auto model = obj.GetProperty<std::string>(L"Model");
 }
+```
+
+#### Reutilizing Interfaces
+
+If you need to perform more than one query on the same path, you can utilize the same `Interface` to avoid creating
+a new connection for each query.
+
+The `Interface` instance will automatically get uninitialized when all other `Objects` and `QueryResults`
+using it go out of scope.
+
+```cpp
+const auto iface = wmipp::Interface::Create("CUSTOM_PATH_HERE");
+const auto cpu_name = iface->ExecuteQuery(L"SELECT Name FROM Win32_Processor")
+  .GetProperty<std::string>(L"Name");
+const auto user_name = iface->ExecuteQuery(L"SELECT UserName FROM Win32_ComputerSystem")
+  .GetProperty<std::string>(L"UserName");
 ```
 
 ## About Typing
