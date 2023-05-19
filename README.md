@@ -69,7 +69,7 @@ The `Interface` instance will automatically get uninitialized when all other `Ob
 using it go out of scope.
 
 ```cpp
-const auto iface = wmipp::Interface::Create("CUSTOM_PATH_HERE");
+const auto iface = wmipp::Interface::Create();
 const auto cpu_name = iface->ExecuteQuery(L"SELECT Name FROM Win32_Processor")
   .GetProperty<std::string>(L"Name");
 const auto user_name = iface->ExecuteQuery(L"SELECT UserName FROM Win32_ComputerSystem")
