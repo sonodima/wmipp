@@ -38,6 +38,8 @@ Connect to a specific WMI namespace by providing a custom path to the `wmipp::In
 Replace `"CUSTOM_PATH_HERE"` with the desired custom path, such as the namespace or machine path.
 
 ```cpp
+#include <wmipp/wmipp.hxx>
+
 const auto iface = wmipp::Interface::Create("CUSTOM_PATH_HERE");
 ```
 
@@ -55,6 +57,8 @@ all the returned objects in the result with range-based loops.
 Within the loop, retrieve the `Model` property value of each object using the `GetProperty` function and store it in the `model` variable.
 
 ```cpp
+#include <wmipp/wmipp.hxx>
+
 for (const auto& obj : wmipp::Interface::Create()->ExecuteQuery(L"SELECT Model FROM Win32_DiskDrive")) {
   const auto model = obj.GetProperty<std::string>(L"Model");
 }
@@ -69,6 +73,8 @@ The `Interface` instance will automatically get uninitialized when all other `Ob
 using it go out of scope.
 
 ```cpp
+#include <wmipp/wmipp.hxx>
+
 const auto iface = wmipp::Interface::Create();
 const auto cpu_name = iface->ExecuteQuery(L"SELECT Name FROM Win32_Processor")
   .GetProperty<std::string>(L"Name");
