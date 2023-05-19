@@ -2,10 +2,10 @@
  * WMI++ takes away the pain from interfacing with
  * the Windows Management Instrumentation in C++.
  *
- * Author:				sonodima
- * Repo:					https://github.com/sonodima/wmipp
+ * Author:			sonodima
+ * Repo:			https://github.com/sonodima/wmipp
  * C++ Version:		20>
- * Supported OS:  Windows
+ * Supported OS:	Windows
  *
  * ---------------------------------------------------
  *
@@ -39,10 +39,13 @@
 #ifndef SD_WMIPP_HXX
 #define SD_WMIPP_HXX
 
+#include <memory>
 #include <optional>
+#include <utility>
 #include <stdexcept>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <concepts>
 
 #include <atlsafe.h>
@@ -53,6 +56,8 @@
 
 namespace wmipp
 {
+	class Interface;
+
 	struct Exception final : std::runtime_error{
 		explicit Exception(const std::string& message) : std::runtime_error(message) {}
 	};
@@ -128,17 +133,18 @@ namespace wmipp
 		friend class QueryResult;
 
 	protected:
-		explicit Object(CComPtr<IWbemClassObject> object) : object_(std::move(object)) {}
+		Object(std::shared_ptr<const Interface> iface, CComPtr<IWbemClassObject> object)
+			: iface_(std::move(iface)), object_(std::move(object)) {}
 
 	public:
 		/**
-	     * \brief This function retrieves the value of the property with the given name from the WMI object.
-	     * The value is converted to the specified type, and if the conversion fails, std::nullopt is returned.
-	     * \tparam T The type of the property value to retrieve.
-	     * \param name The name of the property to retrieve, specified as a wide string view.
-	     * \return std::optional containing the retrieved property value, or std::nullopt if retrieval fails.
+		 * \brief This function retrieves the value of the property with the given name from the WMI object.
+		 * The value is converted to the specified type, and if the conversion fails, std::nullopt is returned.
+		 * \tparam T The type of the property value to retrieve.
+		 * \param name The name of the property to retrieve, specified as a wide string view.
+		 * \return std::optional containing the retrieved property value, or std::nullopt if retrieval fails.
 		 * \note Certain type conversions may throw asserts in debug mode if the conversion is not possible.
-	     */
+		 */
 		template <class T>
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name) const {
 			CComVariant variant;
@@ -156,6 +162,7 @@ namespace wmipp
 		}
 
 	private:
+		std::shared_ptr<const Interface> iface_;
 		CComPtr<IWbemClassObject> object_;
 	};
 
@@ -168,7 +175,8 @@ namespace wmipp
 		friend class Interface;
 
 	protected:
-		explicit QueryResult(const CComPtr<IEnumWbemClassObject>& enumerator) {
+		QueryResult(std::shared_ptr<const Interface> iface, const CComPtr<IEnumWbemClassObject>& enumerator)
+				: iface_(std::move(iface)) {
 			if (enumerator) PopulateObjects(enumerator);
 		}
 
@@ -223,6 +231,7 @@ namespace wmipp
 		}
 
 	private:
+		std::shared_ptr<const Interface> iface_;
 		std::vector<Object> objects_;
 
 		/**
@@ -244,7 +253,7 @@ namespace wmipp
 					break;
 				}
 
-				objects_.emplace_back(Object(object));
+				objects_.emplace_back(Object(iface_, object));
 			}
 		}
 	};
@@ -253,18 +262,51 @@ namespace wmipp
 	 * \brief Manages a connection to the WMI service and provides a convenient interface
 	 * to query WMI objects.
 	 * This class also handles COM initialization and cleanup.
-	 * Important: QueryResult and Object instances should never outlive the Interface
-	 * instance, otherwise the COM library will be uninitialized and the program will crash.
 	 */
-	class Interface{
+	class Interface : public std::enable_shared_from_this<const Interface> {
 	public:
 		/**
-		 * \brief Initializes the COM library and creates a connection to the WMI service.
+		 * Initializes the COM library and creates a connection to the WMI service.
 		 * \param path The path to the WMI namespace to connect to.
 		 * \throws wmipp::Exception if the COM library fails to initialize or the connection
 		 * to the WMI service fails.
 		 */
-		explicit Interface(const std::string_view path = "cimv2") {
+		static std::shared_ptr<Interface> create(std::string_view path = "cimv2");
+
+		Interface(const Interface& other) = default;
+		Interface& operator=(const Interface& other) = default;
+
+		Interface(Interface&& other) noexcept = delete;
+		Interface& operator=(Interface&& other) noexcept = delete;
+
+		/**
+		 * \brief Executes a WQL query and returns the result.
+		 * \param query The WQL query to execute.
+		 * \return A QueryResult instance containing the result of the query.
+		 * \throws wmipp::Exception if the query fails to execute.
+		 */
+		[[nodiscard]] QueryResult ExecuteQuery(const std::wstring_view query) const {
+			CComPtr<IEnumWbemClassObject> enumerator;
+			const auto result = services_->ExecQuery(
+				bstr_t("WQL"),
+				bstr_t(query.data()),
+				WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+				nullptr,
+				&enumerator);
+			if (FAILED(result)) {
+				throw Exception("Failed to execute WQL query");
+			}
+
+			return {shared_from_this(), enumerator};
+		}
+
+	private:
+		struct MakeSharedEnabler;
+
+		CComPtr<IWbemLocator> locator_;
+		CComPtr<IWbemServices> services_;
+
+		explicit Interface(const std::string_view path) {
 			auto result = CoInitializeEx(nullptr, 0);
 			if (FAILED(result)) throw Exception("Failed to initialize the COM library");
 
@@ -308,46 +350,29 @@ namespace wmipp
 			}
 		}
 
-		Interface(const Interface& other) = default;
-		Interface& operator=(const Interface& other) = default;
-
-		Interface(Interface&& other) noexcept = delete;
-		Interface& operator=(Interface&& other) noexcept = delete;
-
 		/**
 		 * \brief Uninitializes the COM library and releases the WMI service connection.
+		 * \note This function should never be called manually, as the lifetime of the
+		 * instances of this class is automatically managed by std::shared_ptr.
 		 */
 		~Interface() {
 			if (services_) services_.Release();
 			if (locator_) locator_.Release();
 			CoUninitialize();
 		}
-
-		/**
-		 * \brief Executes a WQL query and returns the result.
-		 * \param query The WQL query to execute.
-		 * \return A QueryResult instance containing the result of the query.
-		 * \throws wmipp::Exception if the query fails to execute.
-		 */
-		[[nodiscard]] QueryResult ExecuteQuery(const std::wstring_view query) const {
-			CComPtr<IEnumWbemClassObject> enumerator;
-			const auto result = services_->ExecQuery(
-				bstr_t("WQL"),
-				bstr_t(query.data()),
-				WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
-				nullptr,
-				&enumerator);
-			if (FAILED(result)) {
-				throw Exception("Failed to execute WQL query");
-			}
-
-			return QueryResult(enumerator);
-		}
-
-	private:
-		CComPtr<IWbemLocator> locator_;
-		CComPtr<IWbemServices> services_;
 	};
+
+	/**
+	 * \see https://stackoverflow.com/questions/8147027/how-do-i-call-stdmake-shared-on-a-class-with-only-protected-or-private-const/8147213#8147213
+	 */
+	struct Interface::MakeSharedEnabler : Interface {
+		template <typename... Args>
+		explicit MakeSharedEnabler(Args &&... args) : Interface(std::forward<Args>(args)...) {}
+	};
+
+	inline std::shared_ptr<Interface> Interface::create(const std::string_view path) {
+		return std::make_shared<MakeSharedEnabler>(path);
+	}
 } // namespace wmipp
 
 #endif // SD_WMIPP_HXX
