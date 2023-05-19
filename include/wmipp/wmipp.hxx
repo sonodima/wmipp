@@ -271,7 +271,7 @@ namespace wmipp
 		 * \throws wmipp::Exception if the COM library fails to initialize or the connection
 		 * to the WMI service fails.
 		 */
-		static std::shared_ptr<Interface> create(std::string_view path = "cimv2");
+		static std::shared_ptr<Interface> Create(std::string_view path = "cimv2");
 
 		Interface(const Interface& other) = default;
 		Interface& operator=(const Interface& other) = default;
@@ -370,7 +370,7 @@ namespace wmipp
 		explicit MakeSharedEnabler(Args &&... args) : Interface(std::forward<Args>(args)...) {}
 	};
 
-	inline std::shared_ptr<Interface> Interface::create(const std::string_view path) {
+	inline std::shared_ptr<Interface> Interface::Create(const std::string_view path) {
 		return std::make_shared<MakeSharedEnabler>(path);
 	}
 } // namespace wmipp
