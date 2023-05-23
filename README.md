@@ -15,14 +15,14 @@
 
 ## How To
 
-### Manual
+### Manual Install
 
 WMI++ is a __header-only__ library, which means you only need to include the necessary header file in your C++ code
 `(#include <wmipp/wmipp.hxx>)` to start using it. There is no need for any additional setup or installation.
 
 Simply copy the `wmipp` directory to your project's include directory and you're ready to go.
 
-### With Vcpkg
+### Install With Vcpkg
 
 If you are using __Vcpkg__, you can quickly install WMI++ by running the following command:
 
@@ -46,7 +46,7 @@ The result is accessed and stored as a `std::optional<std::string>` in the `valu
 ```cpp
 #include <wmipp/wmipp.hxx>
 
-const auto value = wmipp::Interface::Create()
+const auto cpu_name = wmipp::Interface::Create()
   ->ExecuteQuery(L"SELECT Name FROM Win32_Processor")
   .GetProperty<std::string>(L"Name");
 ```
@@ -80,7 +80,26 @@ Within the loop, retrieve the `Model` property value of each object using the `G
 #include <wmipp/wmipp.hxx>
 
 for (const auto& obj : wmipp::Interface::Create()->ExecuteQuery(L"SELECT Model FROM Win32_DiskDrive")) {
-  const auto model = obj.GetProperty<std::string>(L"Model");
+  const auto disk_model = obj.GetProperty<std::string>(L"Model");
+}
+```
+
+#### Object Indexing
+
+Similarly to iterating over multiple objects, you can use the `GetAt()` function or `[]` operator to access a
+specific `Object` in the `QueryResult`.
+
+Here's an example of how you can get the `Model` of the second `DiskDrive`, if at least two drives are
+available.
+
+```cpp
+#include <wmipp/wmipp.hxx>
+
+const auto result : wmipp::Interface::Create()->ExecuteQuery(L"SELECT Model FROM Win32_DiskDrive");
+if (result.Count() >= 2) {
+  // Alternatively you can index the second element by doing [2]. These two operations are
+  // functionally identical and you can safely pick the one you like the most.
+  const auto disk_model = result.GetAt(2).GetProperty<std::string>(L"Model");
 }
 ```
 
@@ -101,6 +120,8 @@ const auto cpu_name = iface->ExecuteQuery(L"SELECT Name FROM Win32_Processor")
 const auto user_name = iface->ExecuteQuery(L"SELECT UserName FROM Win32_ComputerSystem")
   .GetProperty<std::string>(L"UserName");
 ```
+
+
 
 ## About Typing
 
