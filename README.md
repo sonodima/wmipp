@@ -97,9 +97,9 @@ available.
 
 const auto result : wmipp::Interface::Create()->ExecuteQuery(L"SELECT Model FROM Win32_DiskDrive");
 if (result.Count() >= 2) {
-  // Alternatively you can index the second element by doing [2]. These two operations are
+  // Alternatively you can index the second element by doing [1]. These two operations are
   // functionally identical and you can safely pick the one you like the most.
-  const auto disk_model = result.GetAt(2).GetProperty<std::string>(L"Model");
+  const auto disk_model = result.GetAt(1).GetProperty<std::string>(L"Model");
 }
 ```
 
