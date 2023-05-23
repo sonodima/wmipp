@@ -167,6 +167,32 @@ namespace wmipp
 			return ConvertVariant<T>(variant);
 		}
 
+		/**
+		 * \brief Equality operator overload to compare Objects.
+		 * Comparison ignores the objects source (the server and the namespace they
+		 * were retrieved from) and all qualifiers.
+		 * \param other The Object to compare with.
+		 * \return true if the Objects are equal, false otherwise.
+		 */
+		bool operator==(const Object& other) const {
+			if (object_ == nullptr && other.object_ == nullptr) return true;
+			if (object_ == nullptr || other.object_ == nullptr) return false;
+			return object_->CompareTo(
+				WBEM_FLAG_IGNORE_OBJECT_SOURCE | WBEM_FLAG_IGNORE_QUALIFIERS,
+				other.object_) == WBEM_S_SAME;
+		}
+
+		/**
+		 * \brief Inequality operator overload to compare Objects.
+ 		 * Comparison ignores the objects source (the server and the namespace they
+		 * were retrieved from) and all qualifiers.
+		 * \param other The Object to compare with.
+		 * \return true if the Objects are not equal, false otherwise.
+		 */
+		bool operator!=(const Object& other) const {
+			return !(*this == other);
+		}
+
 	private:
 		std::shared_ptr<const Interface> iface_;
 		CComPtr<IWbemClassObject> object_;
@@ -226,6 +252,24 @@ namespace wmipp
 		 */
 		[[nodiscard]] std::size_t Count() const {
 			return objects_.size();
+		}
+
+		/**
+		 * \param index The index of the object to access.
+		 * \return A const reference to the object at the specified index.
+		 * \throws std::out_of_range if the index is out of range.
+		 */
+		[[nodiscard]] const Object& GetAt(const std::size_t index) const {
+			return objects_.at(index);
+		}
+
+		/**
+		 * \param index The index of the object to access.
+		 * \return A const reference to the object at the specified index.
+		 * \throws std::out_of_range if the index is out of range.
+		 */
+		const Object& operator[](const std::size_t index) const {
+			return GetAt(index);
 		}
 
 		[[nodiscard]] std::vector<Object>::const_iterator begin() const {
