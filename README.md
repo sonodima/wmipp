@@ -13,7 +13,27 @@
 > 
 > WMI++ swoops in like a nimble superhero to save the day, providing a clean and intuitive interface for your WMI needs.
 
-## Usage
+## How To
+
+### Manual
+
+WMI++ is a __header-only__ library, which means you only need to include the necessary header file in your C++ code
+`(#include <wmipp/wmipp.hxx>)` to start using it. There is no need for any additional setup or installation.
+
+Simply copy the `wmipp` directory to your project's include directory and you're ready to go.
+
+### With Vcpkg
+
+If you are using __Vcpkg__, you can quickly install WMI++ by running the following command:
+
+```sh
+./vcpkg install wmipp
+```
+
+Once the installation is complete, you can include the necessary header file in your C++ code
+`(#include <wmipp/wmipp.hxx>)` and start using WMI++.
+
+### Usage
 
 #### Minimal Example
 
@@ -89,3 +109,7 @@ This is done by building a __variant_t__ and delegating it to handle the convers
 Furthermore, strings are converted from bstr_ts, and arrays are built from CComSafeArrays.
 
 However, support is currently not guaranteed for all types that can be present in VARIANTs.
+
+If you need to use a type that is not automatically convertible, you can read the __variant_t__
+by calling the `GetProperty` method without specifying a template argument, and then you
+can manipulate the returned object as you like.
