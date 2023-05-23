@@ -86,7 +86,6 @@ namespace wmipp
 	template<typename T>
 	[[nodiscard]] std::optional<T> ConvertVariant(const CComVariant& variant) {
 		if constexpr (type_traits::is_string_v<T>) {
-			std::cout << "string variant" << std::endl;
 			// Handle std::strings and std::wstrings.
 			// By converting the variant into a bstr_t first, we can automatically
 			// handle character type conversions and support std::string and std::wstring.
@@ -98,7 +97,6 @@ namespace wmipp
 			return result;
 		}
 		else if constexpr (type_traits::is_vector_v<T>) {
-			std::cout << "vector variant" << std::endl;
 			// Handle std::vectors of std::strings and std::wstrings.
 			// This is a special case because we need to convert the BSTRs into the
 			// desired string type.
@@ -139,7 +137,6 @@ namespace wmipp
 			}
 		}
 		else {
-			std::cout << "other variant" << std::endl;
 			// For all other types, we can just try to use the conversion operators
 			// specified by the variant_t class.
 			std::optional<T> result = std::nullopt;
