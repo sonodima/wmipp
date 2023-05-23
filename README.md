@@ -1,13 +1,13 @@
 <h1 align="center">WMI++ 🤕</h1>
 
 <div align="center">
-  <img src="https://img.shields.io/badge/c%2B%2B-20-orange"/>
+  <img src="https://img.shields.io/badge/c%2B%2B-17+-orange"/>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg"/>
 </div>
 
 <br>
 
-> WMI++ is a tiny-but-mighty header-only C++20 library that takes away the pain of dealing with the Windows Management Instrumentation (WMI).
+> WMI++ is a tiny-but-mighty header-only C++ library that takes away the pain of dealing with the Windows Management Instrumentation (WMI).
 
 > If you've ever had the necessity to use WMI, you know it can be like wrestling with a grumpy elephant.
 > 
