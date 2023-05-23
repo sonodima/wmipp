@@ -4,7 +4,7 @@
  *
  * Author:			sonodima
  * Repo:			https://github.com/sonodima/wmipp
- * C++ Version:		20>
+ * C++ Version:		17+
  * Supported OS:	Windows
  *
  * ---------------------------------------------------
@@ -46,13 +46,34 @@
 #include <vector>
 #include <string>
 #include <string_view>
-#include <concepts>
 
 #include <atlsafe.h>
 #include <comdef.h>
 #include <Wbemidl.h>
 
 #pragma comment(lib, "wbemuuid.lib")
+
+namespace wmipp::type_traits
+{
+	template <typename C>
+	struct is_vector : std::false_type {};
+
+	template <typename T, typename A>
+	struct is_vector<std::vector<T, A>> : std::true_type {};
+
+	template <typename C>
+	inline constexpr bool is_vector_v = is_vector<C>::value;
+
+
+	template <typename C>
+	struct is_string : std::false_type {};
+
+	template <typename C, typename T, typename A>
+	struct is_string<std::basic_string<C, T, A>> : std::true_type {};
+
+	template <typename C>
+	inline constexpr bool is_string_v = is_string<C>::value;
+}
 
 namespace wmipp
 {
@@ -62,67 +83,70 @@ namespace wmipp
 		explicit Exception(const std::string& message) : std::runtime_error(message) {}
 	};
 
-	template <class T>
+	template<typename T>
 	[[nodiscard]] std::optional<T> ConvertVariant(const CComVariant& variant) {
-		std::optional<T> result = std::nullopt;
-		try { result = static_cast<T>(variant_t(variant)); }
-		catch (...) { }
-		return result;
-	}
+		if constexpr (type_traits::is_string_v<T>) {
+			std::cout << "string variant" << std::endl;
+			// Handle std::strings and std::wstrings.
+			// By converting the variant into a bstr_t first, we can automatically
+			// handle character type conversions and support std::string and std::wstring.
+			std::optional<T> result = std::nullopt;
+			if (const auto temp = ConvertVariant<bstr_t>(variant)) {
+				result = static_cast<T>(*temp);
+			}
 
-	template <class T>
-		requires std::is_same_v<T, std::string> || std::is_same_v<T, std::wstring>
-	[[nodiscard]] std::optional<T> ConvertVariant(const CComVariant& variant) {
-		// By converting the variant into a bstr_t first, we can automatically
-		// handle character type conversions and support std::string and std::wstring.
-		std::optional<T> result = std::nullopt;
-		if (const auto temp = ConvertVariant<bstr_t>(variant)) {
-			result = static_cast<T>(*temp);
+			return result;
 		}
+		else if constexpr (type_traits::is_vector_v<T>) {
+			std::cout << "vector variant" << std::endl;
+			// Handle std::vectors of std::strings and std::wstrings.
+			// This is a special case because we need to convert the BSTRs into the
+			// desired string type.
+			if constexpr (type_traits::is_string_v<typename T::value_type>) {
+				// Read all data as a vector of BSTRs first.
+				// We will convert each BSTR into the desired string type later.
+				const auto intm = ConvertVariant<std::vector<BSTR>>(variant);
+				if (!intm) return std::nullopt;
 
-		return result;
-	}
+				T result{};
+				result.reserve(intm->size());
+				for (const auto& element : *intm) {
+					// Convert it into a bstr_t first to automatically handle character type conversions.
+					const auto temp = static_cast<typename T::value_type>(bstr_t(element));
+					result.emplace_back(temp);
+					SysFreeString(element);
+				}
 
-	template <class T>
-		requires std::is_same_v<T, std::vector<typename T::value_type>>
-	[[nodiscard]] std::optional<T> ConvertVariant(const CComVariant& variant) {
-		// Allocate a temporary safe array object to read the data from the variant.
-		// This allows for automatic type conversions and other QOL improvements.
-		CComSafeArray<typename T::value_type> safe_array;
-		try { safe_array.Attach(variant.parray); }
-		catch (...) { return std::nullopt; }
+				return result;
+			}
+			else {
+				// Handle other std::vector types.
+				// Allocate a temporary safe array object to read the data from the variant.
+				// This allows for automatic type conversions and other QOL improvements.
+				CComSafeArray<typename T::value_type> safe_array;
+				try { safe_array.Attach(variant.parray); }
+				catch (...) { return std::nullopt; }
 
-		// Copy the data from the safe array into a vector, element by element.
-		T result{};
-		result.reserve(safe_array.GetCount());
-		for (unsigned long i = 0; i < safe_array.GetCount(); ++i) {
-			result.push_back(safe_array.GetAt(i));
+				// Copy the data from the safe array into a vector, element by element.
+				T result{};
+				result.reserve(safe_array.GetCount());
+				for (unsigned long i = 0; i < safe_array.GetCount(); ++i) {
+					result.push_back(safe_array.GetAt(i));
+				}
+
+				safe_array.Detach();
+				return result;
+			}
 		}
-
-		safe_array.Detach();
-		return result;
-	}
-
-	template <class T>
-		requires std::is_same_v<T, std::vector<typename T::value_type>>
-		&& (std::is_same_v<typename T::value_type, std::string>
-			|| std::is_same_v<typename T::value_type, std::wstring>)
-	[[nodiscard]] std::optional<T> ConvertVariant(const CComVariant& variant) {
-		// Read all data as a vector of BSTRs first.
-		// We will convert each BSTR into the desired string type later.
-		const auto intm = ConvertVariant<std::vector<BSTR>>(variant);
-		if (!intm) return std::nullopt;
-
-		T result{};
-		result.reserve(intm->size());
-		for (const auto& element : *intm) {
-			// Convert it into a bstr_t first to automatically handle character type conversions.
-			const auto temp = static_cast<typename T::value_type>(bstr_t(element));
-			result.emplace_back(temp);
-			SysFreeString(element);
+		else {
+			std::cout << "other variant" << std::endl;
+			// For all other types, we can just try to use the conversion operators
+			// specified by the variant_t class.
+			std::optional<T> result = std::nullopt;
+			try { result = static_cast<T>(variant_t(variant)); }
+			catch (...) { }
+			return result;
 		}
-
-		return result;
 	}
 
 	/**
@@ -145,7 +169,7 @@ namespace wmipp
 		 * \return std::optional containing the retrieved property value, or std::nullopt if retrieval fails.
 		 * \note Certain type conversions may throw asserts in debug mode if the conversion is not possible.
 		 */
-		template <class T = variant_t>
+		template <typename T = variant_t>
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name) const {
 			CComVariant variant;
 			const auto result = object_->Get(
@@ -221,7 +245,7 @@ namespace wmipp
 		 * \param name The name of the property to retrieve.
 		 * \return An optional value containing the property value if found, or an empty optional if not found.
 		 */
-		template <class T = variant_t>
+		template <typename T = variant_t>
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name) const {
 			for (const Object& obj : *this) {
 				if (auto value = obj.GetProperty<T>(name)) {
@@ -241,7 +265,7 @@ namespace wmipp
 		 * \param index The index of the object in the objects vector to retrieve the property from.
 		 * \return An optional value containing the property value exists, or an empty optional if not found.
 		 */
-		template <class T = variant_t>
+		template <typename T = variant_t>
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name, const std::size_t index) const {
 			if (index >= Count()) return std::nullopt;
 			return GetAt(index).GetProperty<T>(name);
@@ -417,7 +441,7 @@ namespace wmipp
 	 */
 	struct Interface::MakeSharedEnabler : Interface {
 		template <typename... Args>
-		explicit MakeSharedEnabler(Args &&... args) : Interface(std::forward<Args>(args)...) {}
+		explicit MakeSharedEnabler(Args&&... args) : Interface(std::forward<Args>(args)...) {}
 	};
 
 	inline std::shared_ptr<Interface> Interface::Create(const std::string_view path) {
