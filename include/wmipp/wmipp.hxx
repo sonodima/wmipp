@@ -145,7 +145,7 @@ namespace wmipp
 		 * \return std::optional containing the retrieved property value, or std::nullopt if retrieval fails.
 		 * \note Certain type conversions may throw asserts in debug mode if the conversion is not possible.
 		 */
-		template <class T>
+		template <class T = variant_t>
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name) const {
 			CComVariant variant;
 			const auto result = object_->Get(
@@ -156,6 +156,12 @@ namespace wmipp
 				nullptr);
 			if (FAILED(result)) {
 				return std::nullopt;
+			}
+
+			// Only perform the variant type conversion if a return type other than variant_t
+			// is specified.
+			if constexpr (std::is_same_v<T, variant_t>) {
+				return variant;
 			}
 
 			return ConvertVariant<T>(variant);
@@ -189,7 +195,7 @@ namespace wmipp
 		 * \param name The name of the property to retrieve.
 		 * \return An optional value containing the property value if found, or an empty optional if not found.
 		 */
-		template <class T>
+		template <class T = variant_t>
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name) const {
 			for (const Object& obj : *this) {
 				if (auto value = obj.GetProperty<T>(name)) {
@@ -209,7 +215,7 @@ namespace wmipp
 		 * \param index The index of the object in the objects vector to retrieve the property from.
 		 * \return An optional value containing the property value exists, or an empty optional if not found.
 		 */
-		template <class T>
+		template <class T = variant_t>
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name, const std::size_t index) const {
 			if (index >= objects_.size()) return std::nullopt;
 			return objects_.at(index).GetProperty<T>(name);
