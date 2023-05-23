@@ -243,8 +243,8 @@ namespace wmipp
 		 */
 		template <class T = variant_t>
 		[[nodiscard]] std::optional<T> GetProperty(const std::wstring_view name, const std::size_t index) const {
-			if (index >= objects_.size()) return std::nullopt;
-			return objects_.at(index).GetProperty<T>(name);
+			if (index >= Count()) return std::nullopt;
+			return GetAt(index).GetProperty<T>(name);
 		}
 
 		/**
