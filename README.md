@@ -41,7 +41,7 @@ Retrieve a specific property from a WMI query using WMI++.
 
 The code executes a query that selects the `Name` property from the `Win32_Processor` class.
 
-The result is accessed and stored as a `std::optional<std::string>` in the `value` variable.
+The result is accessed and stored as a `std::optional<std::string>` in the `cpu_name` variable.
 
 ```cpp
 #include <wmipp/wmipp.hxx>
@@ -74,7 +74,7 @@ The code executes a query that selects the Model property from the `Win32_DiskDr
 Because this query may return more than one result _(with disks > 1)_, you can choose to iterate
 all the returned objects in the result with range-based loops.
 
-Within the loop, retrieve the `Model` property value of each object using the `GetProperty` function and store it in the `model` variable.
+Within the loop, retrieve the `Model` property value of each object using the `GetProperty` function and store it in the `disk_model` variable.
 
 ```cpp
 #include <wmipp/wmipp.hxx>
@@ -123,7 +123,7 @@ const auto user_name = iface->ExecuteQuery(L"SELECT UserName FROM Win32_Computer
 
 
 
-## About Typing
+## About Type Conversions
 
 Currently there is support for the majority of the types you would usually need to query.
 This is done by building a __variant_t__ and delegating it to handle the conversions.
