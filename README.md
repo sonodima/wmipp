@@ -3,6 +3,7 @@
 <div align="center">
   <img src="https://img.shields.io/badge/c%2B%2B-17+-orange"/>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg"/>
+  <img src="https://repology.org/badge/version-for-repo/vcpkg/wmipp.svg"/>
 </div>
 
 <br>
