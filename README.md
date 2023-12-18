@@ -10,10 +10,6 @@
 
 > WMI++ is a tiny-but-mighty header-only C++ library that takes away the pain of dealing with the Windows Management Instrumentation (WMI).
 
-> If you've ever had the necessity to use WMI, you know it can be like wrestling with a grumpy elephant.
-> 
-> WMI++ swoops in like a nimble superhero to save the day, providing a clean and intuitive interface for your WMI needs.
-
 ## How To
 
 ### Manual Install
